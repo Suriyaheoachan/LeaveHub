@@ -1,9 +1,37 @@
 const { createClient } = require('@supabase/supabase-js');
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+// สร้าง Supabase client แบบ lazy (สร้างจริงตอนถูกเรียกใช้งานครั้งแรกเท่านั้น)
+// เหตุผล: ถ้า createClient() ทำงานตอน import โมดูล (top-level) แล้ว
+// SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY ยังไม่ถูกตั้งค่า (เช่น ลืมตั้ง
+// Environment Variables บน Vercel) โมดูลทั้งไฟล์จะโยน error ทันทีตอน
+// cold start ทำให้ serverless function พังทุก request แบบ
+// FUNCTION_INVOCATION_FAILED โดยไม่มี error message ที่เป็นประโยชน์
+// การ lazy-init แบบนี้ทำให้ error (ถ้ามี) เกิดขึ้นตอนเรียก endpoint จริง
+// ซึ่งจะถูก try/catch ในแต่ละ route ดักไว้แล้วตอบกลับเป็น JSON 500
+// ที่มีข้อความชัดเจน แทนที่จะพังทั้งฟังก์ชัน
+let _client = null;
+function getClient() {
+  if (_client) return _client;
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) {
+    throw new Error(
+      'ยังไม่ได้ตั้งค่า SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY — เช็ค Environment Variables (ในเครื่อง: ไฟล์ .env, บน Vercel: Project Settings > Environment Variables แล้ว Redeploy ใหม่)'
+    );
+  }
+  _client = createClient(url, key);
+  return _client;
+}
+
+// Proxy ทำให้โค้ดส่วนอื่นในไฟล์นี้ยังเรียก supabase.from(...) / supabase.storage
+// ได้เหมือนเดิมทุกที่ โดยไม่ต้องแก้โค้ดที่เหลือทั้งหมด
+const supabase = new Proxy({}, {
+  get(_target, prop) {
+    const client = getClient();
+    const value = client[prop];
+    return typeof value === 'function' ? value.bind(client) : value;
+  }
+});
 
 const LEAVE_BUCKET = 'leave-images';
 

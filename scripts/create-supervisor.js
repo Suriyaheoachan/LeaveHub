@@ -9,7 +9,7 @@
     node scripts/create-supervisor.js SUP002 mypassword123 supervisor สมหญิง รักงาน "บริษัท เอบีซี" "บัญชี"
 */
 require('dotenv').config();
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const { createClient } = require('@supabase/supabase-js');
 
 async function main() {

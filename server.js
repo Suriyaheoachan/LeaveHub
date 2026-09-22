@@ -37,6 +37,15 @@ app.use((req, res) => {
   res.redirect('/login.html');
 });
 
+// error handler กลาง — ดักทุก error ที่หลุดมาจาก middleware/route ก่อนหน้า
+// (รวมถึง JSON body ที่ parse ไม่ได้) เพื่อตอบกลับเป็น JSON ที่อ่านได้เสมอ
+// แทนที่จะปล่อยให้ function ทั้งตัวพังแบบไม่มีข้อความ (FUNCTION_INVOCATION_FAILED)
+app.use((err, req, res, next) => {
+  console.error('[LeaveHub] Unhandled error:', err);
+  if (res.headersSent) return next(err);
+  res.status(500).json({ error: 'เกิดข้อผิดพลาดในระบบ กรุณาลองใหม่ภายหลัง' });
+});
+
 // รัน app.listen() เฉพาะตอนรันตรงๆ ด้วย `node server.js` (localhost)
 // บน Vercel (@vercel/node) จะ import โมดูลนี้แล้วเรียก app เป็น request handler เอง
 // ไม่ต้อง (และไม่ควร) listen ที่ port ในสภาพแวดล้อม serverless

@@ -1,5 +1,5 @@
 const express = require('express');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs'); // pure-JS (ไม่มี native binary) เพื่อความเข้ากันได้กับ Vercel serverless
 const jwt = require('jsonwebtoken');
 const { getSupervisorById } = require('../services/supabaseService');
 
