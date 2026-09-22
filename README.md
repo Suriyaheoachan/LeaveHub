@@ -18,7 +18,9 @@ cp .env.example .env
 
 - `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` — ดูได้ที่ Supabase Dashboard > Project Settings > API
   (ใช้ **Service Role Key** เพราะ backend ต้องอ่าน/เขียนข้ามสิทธิ์ผู้ใช้ — ห้ามส่งค่านี้ไปหน้าเว็บเด็ดขาด)
-- `SESSION_SECRET` — ตั้งเป็นสตริงยาวๆ สุ่มๆ สำหรับเซ็น session cookie
+- `JWT_SECRET` — ตั้งเป็นสตริงยาวๆ สุ่มๆ สำหรับเซ็น JWT (auth token ที่เก็บใน httpOnly cookie)
+  สร้างง่ายๆ ด้วยคำสั่ง: `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`
+- `NODE_ENV` — ตั้งเป็น `production` ตอน deploy จริง (cookie จะถูกบังคับให้ส่งผ่าน HTTPS เท่านั้น)
 
 ## 3) สร้างบัญชีผู้ใช้แรก (login เข้าระบบได้เฉพาะ supervisor/admin เท่านั้น)
 
@@ -51,6 +53,11 @@ npm start
 3. คำนวณจำนวนวันลาจากเวลาทำงานจริง 08:00-17:00 หักพักเที่ยง 12:00-13:00 (8 ชม./วัน) แล้วปัด**ขึ้น**เป็นทวีคูณของ 0.5 วัน (ปัดขึ้นเพื่อไม่ให้พนักงานเสียสิทธิ์จากเศษเวลา — ปรับเป็นปัดลง/ปัดใกล้สุดได้ที่ฟังก์ชัน `roundToHalfDay`)
 4. แนบรูปได้เฉพาะฟอร์มขอลา อัปโหลดขึ้น Supabase Storage bucket `leave-images` เก็บ URL ไว้ที่ `image_path` — หน้าประวัติโชว์ "-" ถ้าไม่มีรูป
 
-## หมายเหตุก่อน deploy ขึ้น Vercel
+## Auth และการ deploy ขึ้น Vercel
 
-โค้ดชุดนี้ใช้ `express-session` แบบ in-memory store ซึ่ง**ใช้ไม่ได้กับ serverless** (แต่ละ request อาจไปคนละ instance ทำให้ session หาย) ตามที่ระบุไว้ในสเปคแล้วว่าต้องเปลี่ยนไปใช้ JWT (`jsonwebtoken` + `cookie-parser`) แทนก่อน deploy จริง — ไฟล์ `vercel.json` ที่แนบมาเป็นแค่โครงเริ่มต้น ยังไม่ได้ปรับส่วน auth ให้รองรับ serverless
+ระบบใช้ **JWT เก็บใน httpOnly cookie** (`jsonwebtoken` + `cookie-parser`) แทน `express-session` แบบเดิม เพื่อให้ทำงานได้ถูกต้องบน serverless (แต่ละ request ไม่ต้องพึ่ง memory ร่วมกันของ instance เดิม) — คำขอ login จะเซ็น JWT อายุ 8 ชั่วโมงแล้วฝังใน cookie ชื่อ `leavehub_token`, ทุก endpoint ที่ต้อง login จะอ่าน/ตรวจ JWT จาก cookie นี้ผ่าน `requireAuth` / `requireAdmin` middleware
+
+สิ่งที่ควรเช็คก่อน deploy ขึ้น Vercel จริง:
+- ตั้งค่า `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `JWT_SECRET` เป็น Environment Variables บน Vercel Dashboard (ใช้ค่าคนละชุดกับตอน dev บนเครื่อง)
+- ตั้ง `NODE_ENV=production` เพื่อให้ cookie ถูกบังคับส่งผ่าน HTTPS เท่านั้น
+- ไฟล์อัปโหลด/รูปแนบยังอัปโหลดตรงไป Supabase Storage อยู่แล้ว ไม่ได้พึ่ง local disk จึงใช้กับ serverless ได้ทันทีโดยไม่ต้องแก้เพิ่ม

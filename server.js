@@ -1,7 +1,7 @@
 require('dotenv').config();
 const path = require('path');
 const express = require('express');
-const session = require('express-session');
+const cookieParser = require('cookie-parser');
 
 const { router: authRouter } = require('./routes/auth');
 const attendanceRouter = require('./routes/attendance');
@@ -12,19 +12,17 @@ const PORT = process.env.PORT || 3000;
 if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
   console.warn('[LeaveHub] คำเตือน: ยังไม่ได้ตั้งค่า SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY ใน .env');
 }
+if (!process.env.JWT_SECRET && !process.env.SESSION_SECRET) {
+  console.warn('[LeaveHub] คำเตือน: ยังไม่ได้ตั้งค่า JWT_SECRET ใน .env (กำลังใช้ค่า default ที่ไม่ปลอดภัยสำหรับ production)');
+}
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 
-app.use(session({
-  secret: process.env.SESSION_SECRET || 'leavehub-dev-secret-change-me',
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    httpOnly: true,
-    maxAge: 8 * 60 * 60 * 1000 // 8 ชั่วโมง
-  }
-}));
+// auth ใช้ JWT เก็บใน httpOnly cookie แทน server-side session
+// เพื่อให้ทำงานได้ถูกต้องบน serverless (เช่น Vercel) ที่แต่ละ request
+// อาจไปลงที่ instance คนละตัวกัน ไม่มี memory ร่วมกันแบบ session แบบเดิม
 
 app.use('/api/auth', authRouter);
 app.use('/api/attendance', attendanceRouter);
@@ -39,6 +37,13 @@ app.use((req, res) => {
   res.redirect('/login.html');
 });
 
-app.listen(PORT, () => {
-  console.log(`LeaveHub server กำลังทำงานที่ http://localhost:${PORT}`);
-});
+// รัน app.listen() เฉพาะตอนรันตรงๆ ด้วย `node server.js` (localhost)
+// บน Vercel (@vercel/node) จะ import โมดูลนี้แล้วเรียก app เป็น request handler เอง
+// ไม่ต้อง (และไม่ควร) listen ที่ port ในสภาพแวดล้อม serverless
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`LeaveHub server กำลังทำงานที่ http://localhost:${PORT}`);
+  });
+}
+
+module.exports = app;
