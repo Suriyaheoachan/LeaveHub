@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ขอเพิ่มเวลา — LeaveHub</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="page-content">
+    <div class="card card-centered">
+      <h1>🕒 ขอเพิ่มเวลา</h1>
+      <p style="color:#6b7280;">สำหรับกรณีลืมสแกนเข้า-ออกงาน</p>
+
+      <div id="alert-box"></div>
+
+      <form id="tc-form">
+        <div class="field">
+          <label for="employee_id">พนักงาน</label>
+          <select id="employee_id" name="employee_id" required>
+            <option value="">-- เลือกพนักงาน --</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="correction_date">วันที่</label>
+          <input type="date" id="correction_date" name="correction_date" required>
+        </div>
+        <div class="field">
+          <label for="correction_time">เวลา</label>
+          <input type="time" id="correction_time" name="correction_time" required>
+        </div>
+        <div class="field">
+          <label for="reason_type">เหตุผล</label>
+          <select id="reason_type" name="reason_type" required>
+            <option value="">-- เลือกเหตุผล --</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="detail">รายละเอียดเพิ่มเติม (ถ้ามี)</label>
+          <textarea id="detail" name="detail" rows="3"></textarea>
+        </div>
+        <button type="submit" class="btn-primary" id="submit-btn">ส่งคำขอ</button>
+      </form>
+    </div>
+  </main>
+
+  <script src="nav.js"></script>
+  <script>
+    const alertBox = document.getElementById('alert-box');
+    const form = document.getElementById('tc-form');
+    const submitBtn = document.getElementById('submit-btn');
+    const employeeSelect = document.getElementById('employee_id');
+    const reasonSelect = document.getElementById('reason_type');
+
+    function showAlert(type, message) {
+      alertBox.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+    }
+
+    async function loadEmployees() {
+      const res = await fetch('/api/attendance/my-team');
+      const data = await res.json();
+      if (!res.ok) return showAlert('error', data.error || 'โหลดรายชื่อพนักงานไม่สำเร็จ');
+      data.employees.forEach((emp) => {
+        const opt = document.createElement('option');
+        opt.value = emp.employee_id;
+        opt.textContent = `${emp.employee_id} — ${emp.prefix || ''}${emp.first_name} ${emp.last_name} (${emp.department})`;
+        employeeSelect.appendChild(opt);
+      });
+    }
+
+    async function loadReasons() {
+      const res = await fetch('/api/attendance/time-correction/reasons');
+      const data = await res.json();
+      if (!res.ok) return showAlert('error', data.error || 'โหลดรายการเหตุผลไม่สำเร็จ');
+      data.reasons.forEach((r) => {
+        const opt = document.createElement('option');
+        opt.value = r.value;
+        opt.textContent = r.label;
+        reasonSelect.appendChild(opt);
+      });
+    }
+
+    window.LeaveHub.ready.then((user) => {
+      if (!user) return;
+      loadEmployees();
+      loadReasons();
+    });
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      alertBox.innerHTML = '';
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'กำลังส่ง...';
+
+      const payload = {
+        employee_id: employeeSelect.value,
+        correction_date: document.getElementById('correction_date').value,
+        correction_time: document.getElementById('correction_time').value,
+        reason_type: reasonSelect.value,
+        detail: document.getElementById('detail').value
+      };
+
+      try {
+        const res = await fetch('/api/attendance/time-correction', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          showAlert('error', data.error || 'ส่งคำขอไม่สำเร็จ');
+        } else {
+          showAlert('success', 'ส่งคำขอเพิ่มเวลาเรียบร้อยแล้ว');
+          form.reset();
+        }
+      } catch (err) {
+        showAlert('error', 'เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'ส่งคำขอ';
+      }
+    });
+  </script>
+</body>
+</html>

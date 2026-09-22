@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ประวัติ OT — LeaveHub</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="page-content">
+    <div class="card">
+      <h1>📄 ประวัติ OT</h1>
+
+      <div id="alert-box"></div>
+
+      <div class="filter-bar">
+        <div class="field">
+          <label for="f-name">ชื่อพนักงาน</label>
+          <input type="text" id="f-name" placeholder="ค้นหาชื่อ">
+        </div>
+        <div class="field">
+          <label for="f-company">บริษัท</label>
+          <input type="text" id="f-company" placeholder="เช่น บริษัท เอบีซี">
+        </div>
+        <div class="field">
+          <label for="f-department">แผนก</label>
+          <input type="text" id="f-department" placeholder="เช่น บัญชี">
+        </div>
+        <div class="field">
+          <label for="f-date-from">ตั้งแต่วันที่</label>
+          <input type="date" id="f-date-from">
+        </div>
+        <div class="field">
+          <label for="f-date-to">ถึงวันที่</label>
+          <input type="date" id="f-date-to">
+        </div>
+        <button class="btn-secondary" id="search-btn">ค้นหา</button>
+        <button class="btn-secondary" id="reset-btn">ล้างตัวกรอง</button>
+      </div>
+
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>วันที่ยื่น</th>
+              <th>รหัสพนักงาน</th>
+              <th>ชื่อ</th>
+              <th>บริษัท</th>
+              <th>แผนก</th>
+              <th>วันที่ OT</th>
+              <th>เริ่ม</th>
+              <th>สิ้นสุด</th>
+              <th>ชั่วโมง</th>
+              <th>รายละเอียด</th>
+              <th>ผู้ยื่นแทน</th>
+            </tr>
+          </thead>
+          <tbody id="table-body">
+            <tr><td colspan="11">กำลังโหลด...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <script src="nav.js"></script>
+  <script>
+    const alertBox = document.getElementById('alert-box');
+    const tbody = document.getElementById('table-body');
+
+    function showAlert(type, message) {
+      alertBox.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+    }
+
+    function fmtDateTime(v) {
+      if (!v) return '-';
+      const d = new Date(v);
+      return d.toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' });
+    }
+
+    async function loadHistory() {
+      tbody.innerHTML = '<tr><td colspan="11">กำลังโหลด...</td></tr>';
+      const params = new URLSearchParams();
+      const name = document.getElementById('f-name').value.trim();
+      const company = document.getElementById('f-company').value.trim();
+      const department = document.getElementById('f-department').value.trim();
+      const dateFrom = document.getElementById('f-date-from').value;
+      const dateTo = document.getElementById('f-date-to').value;
+      if (name) params.set('name', name);
+      if (company) params.set('company', company);
+      if (department) params.set('department', department);
+      if (dateFrom) params.set('date_from', dateFrom);
+      if (dateTo) params.set('date_to', dateTo);
+
+      try {
+        const res = await fetch('/api/attendance/ot/history?' + params.toString());
+        const data = await res.json();
+        if (!res.ok) return showAlert('error', data.error || 'โหลดประวัติไม่สำเร็จ');
+
+        if (!data.history.length) {
+          tbody.innerHTML = '<tr><td colspan="11">ไม่พบข้อมูล</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = '';
+        data.history.forEach((row) => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${fmtDateTime(row.submitted_at)}</td>
+            <td>${window.LeaveHub.escapeHtml(row.employee_id)}</td>
+            <td>${window.LeaveHub.escapeHtml(row.name)}</td>
+            <td>${window.LeaveHub.escapeHtml(row.company)}</td>
+            <td>${window.LeaveHub.escapeHtml(row.department)}</td>
+            <td>${window.LeaveHub.escapeHtml(row.ot_date)}</td>
+            <td>${window.LeaveHub.escapeHtml(row.ot_start_time)}</td>
+            <td>${window.LeaveHub.escapeHtml(row.ot_end_time)}</td>
+            <td>${row.ot_hours}</td>
+            <td>${window.LeaveHub.escapeHtml(row.detail || '-')}</td>
+            <td>${window.LeaveHub.escapeHtml(row.submitted_by)}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      } catch (err) {
+        showAlert('error', 'เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ');
+      }
+    }
+
+    document.getElementById('search-btn').addEventListener('click', loadHistory);
+    document.getElementById('reset-btn').addEventListener('click', () => {
+      document.querySelectorAll('.filter-bar input').forEach((el) => el.value = '');
+      loadHistory();
+    });
+
+    window.LeaveHub.ready.then((user) => {
+      if (!user) return;
+      loadHistory();
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>เข้าสู่ระบบ — LeaveHub</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="page-content">
+    <div class="card card-centered">
+      <h1>📋 LeaveHub</h1>
+      <p style="color:#6b7280; margin-top:-8px;">ระบบขอลา / ขอเพิ่มเวลา / ขอ OT</p>
+
+      <div id="alert-box"></div>
+
+      <form id="login-form">
+        <div class="field">
+          <label for="supervisor_id">รหัสผู้ใช้ (Supervisor ID)</label>
+          <input type="text" id="supervisor_id" name="supervisor_id" required autofocus autocomplete="username">
+        </div>
+        <div class="field">
+          <label for="password">รหัสผ่าน</label>
+          <input type="password" id="password" name="password" required autocomplete="current-password">
+        </div>
+        <button type="submit" class="btn-primary" id="submit-btn" style="width:100%;">เข้าสู่ระบบ</button>
+      </form>
+    </div>
+  </main>
+
+  <script>
+    // ถ้า login อยู่แล้ว ให้เด้งไปหน้าแรกเลย (ไม่ใช้ nav.js เพราะหน้านี้ไม่มี header)
+    fetch('/api/auth/me').then((res) => {
+      if (res.ok) window.location.href = 'index.html';
+    });
+
+    const form = document.getElementById('login-form');
+    const alertBox = document.getElementById('alert-box');
+    const submitBtn = document.getElementById('submit-btn');
+
+    function showError(message) {
+      alertBox.innerHTML = `<div class="alert alert-error">${message}</div>`;
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      alertBox.innerHTML = '';
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'กำลังเข้าสู่ระบบ...';
+
+      const supervisor_id = document.getElementById('supervisor_id').value.trim();
+      const password = document.getElementById('password').value;
+
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ supervisor_id, password })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          showError(data.error || 'เข้าสู่ระบบไม่สำเร็จ');
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'เข้าสู่ระบบ';
+          return;
+        }
+        window.location.href = 'index.html';
+      } catch (err) {
+        showError('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ กรุณาลองใหม่');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'เข้าสู่ระบบ';
+      }
+    });
+  </script>
+</body>
+</html>

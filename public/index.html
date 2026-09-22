@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>หน้าแรก — LeaveHub</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="page-content">
+    <div class="card">
+      <h1 id="welcome-title">ยินดีต้อนรับ</h1>
+      <p id="welcome-sub" style="color:#6b7280;"></p>
+
+      <div class="menu-grid" id="menu-grid"></div>
+    </div>
+  </main>
+
+  <script src="nav.js"></script>
+  <script>
+    const MENU = [
+      { href: 'time-correction.html', icon: '🕒', title: 'ขอเพิ่มเวลา', desc: 'ขอเพิ่มเวลากรณีลืมสแกน', roles: ['supervisor','admin'] },
+      { href: 'ot.html', icon: '⏱️', title: 'ขอทำงานล่วงเวลา (OT)', desc: 'ยื่นคำขอ OT พร้อมดูตัวอย่างชั่วโมง', roles: ['supervisor','admin'] },
+      { href: 'leave.html', icon: '🌴', title: 'ขอลางาน', desc: 'ยื่นคำขอลา พร้อมเช็ควันคงเหลือ', roles: ['supervisor','admin'] },
+      { href: 'history-leave.html', icon: '📄', title: 'ประวัติการลา', desc: 'ค้นหา/กรองประวัติการลาทั้งหมด', roles: ['admin'] },
+      { href: 'history-time-correction.html', icon: '📄', title: 'ประวัติขอเพิ่มเวลา', desc: 'ดูประวัติคำขอเพิ่มเวลาทั้งหมด', roles: ['admin'] },
+      { href: 'history-ot.html', icon: '📄', title: 'ประวัติ OT', desc: 'ดูประวัติคำขอ OT ทั้งหมด', roles: ['admin'] }
+    ];
+
+    window.LeaveHub.ready.then((user) => {
+      if (!user) return;
+      document.getElementById('welcome-title').textContent = `สวัสดี, ${user.name}`;
+      document.getElementById('welcome-sub').textContent =
+        user.role === 'admin'
+          ? 'คุณเป็นผู้ดูแลระบบ เห็นข้อมูลทุกบริษัท/ทุกแผนก'
+          : `หัวหน้างาน — ${user.company} / ${user.department}`;
+
+      const grid = document.getElementById('menu-grid');
+      MENU.filter((m) => m.roles.includes(user.role)).forEach((m) => {
+        const a = document.createElement('a');
+        a.className = 'menu-card';
+        a.href = m.href;
+        a.innerHTML = `<div class="icon">${m.icon}</div><h3>${m.title}</h3><p>${m.desc}</p>`;
+        grid.appendChild(a);
+      });
+    });
+  </script>
+</body>
+</html>

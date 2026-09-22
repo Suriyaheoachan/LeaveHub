@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ขอลางาน — LeaveHub</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="page-content">
+    <div class="card card-centered">
+      <h1>🌴 ขอลางาน</h1>
+
+      <div id="alert-box"></div>
+
+      <form id="leave-form">
+        <div class="field">
+          <label for="employee_id">พนักงาน</label>
+          <select id="employee_id" name="employee_id" required>
+            <option value="">-- เลือกพนักงาน --</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="leave_type">ประเภทการลา</label>
+          <select id="leave_type" name="leave_type" required>
+            <option value="">-- เลือกประเภท --</option>
+            <option value="business">ลากิจ</option>
+            <option value="sick">ลาป่วย</option>
+            <option value="vacation">ลาพักร้อน (ต้องขอล่วงหน้าอย่างน้อย 3 วัน)</option>
+          </select>
+        </div>
+
+        <div class="preview-box" id="quota-box" style="display:none;"></div>
+
+        <div class="field">
+          <label for="start_datetime">วันเวลาเริ่มลา</label>
+          <input type="datetime-local" id="start_datetime" name="start_datetime" required>
+        </div>
+        <div class="field">
+          <label for="end_datetime">วันเวลาสิ้นสุดการลา</label>
+          <input type="datetime-local" id="end_datetime" name="end_datetime" required>
+        </div>
+
+        <div class="preview-box" id="days-box" style="display:none;"></div>
+
+        <div class="field">
+          <label for="detail">รายละเอียดเพิ่มเติม (ถ้ามี)</label>
+          <textarea id="detail" name="detail" rows="3"></textarea>
+        </div>
+
+        <div class="field">
+          <label for="image">แนบรูปภาพ (ถ้ามี เช่น ใบรับรองแพทย์)</label>
+          <input type="file" id="image" name="image" accept="image/*">
+        </div>
+
+        <button type="submit" class="btn-primary" id="submit-btn">ส่งคำขอ</button>
+      </form>
+    </div>
+  </main>
+
+  <script src="nav.js"></script>
+  <script>
+    const alertBox = document.getElementById('alert-box');
+    const form = document.getElementById('leave-form');
+    const submitBtn = document.getElementById('submit-btn');
+    const employeeSelect = document.getElementById('employee_id');
+    const leaveTypeSelect = document.getElementById('leave_type');
+    const quotaBox = document.getElementById('quota-box');
+    const daysBox = document.getElementById('days-box');
+    const startInput = document.getElementById('start_datetime');
+    const endInput = document.getElementById('end_datetime');
+
+    const LEAVE_LABEL = { business: 'ลากิจ', sick: 'ลาป่วย', vacation: 'ลาพักร้อน' };
+    const LEAVE_COLUMN = { business: 'leave_business', sick: 'leave_sick', vacation: 'leave_vacation' };
+
+    let employees = [];
+
+    function showAlert(type, message) {
+      alertBox.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+    }
+
+    async function loadEmployees() {
+      const res = await fetch('/api/attendance/my-team');
+      const data = await res.json();
+      if (!res.ok) return showAlert('error', data.error || 'โหลดรายชื่อพนักงานไม่สำเร็จ');
+      employees = data.employees;
+      employees.forEach((emp) => {
+        const opt = document.createElement('option');
+        opt.value = emp.employee_id;
+        opt.textContent = `${emp.employee_id} — ${emp.prefix || ''}${emp.first_name} ${emp.last_name} (${emp.department})`;
+        employeeSelect.appendChild(opt);
+      });
+    }
+
+    window.LeaveHub.ready.then((user) => {
+      if (!user) return;
+      loadEmployees();
+    });
+
+    function updateQuotaBox() {
+      const emp = employees.find((e) => e.employee_id === employeeSelect.value);
+      const leaveType = leaveTypeSelect.value;
+      if (!emp || !leaveType) {
+        quotaBox.style.display = 'none';
+        return;
+      }
+      const remaining = Number(emp[LEAVE_COLUMN[leaveType]] || 0);
+      quotaBox.innerHTML = `${LEAVE_LABEL[leaveType]}คงเหลือ: <strong>${remaining}</strong> วัน`;
+      quotaBox.style.display = 'block';
+    }
+
+    employeeSelect.addEventListener('change', updateQuotaBox);
+    leaveTypeSelect.addEventListener('change', updateQuotaBox);
+
+    // ===== คำนวณจำนวนวันลาแบบชั่วโมงฝั่ง client (พรีวิวเท่านั้น ค่าจริงคำนวณที่ backend) =====
+    const WORK_START_MIN = 8 * 60, WORK_END_MIN = 17 * 60;
+    const LUNCH_START_MIN = 12 * 60, LUNCH_END_MIN = 13 * 60;
+
+    function overlapMinutesForDay(dayBase, rangeStart, rangeEnd) {
+      const base = new Date(dayBase); base.setHours(0,0,0,0);
+      const workStart = new Date(base.getTime() + WORK_START_MIN*60000);
+      const workEnd = new Date(base.getTime() + WORK_END_MIN*60000);
+      const lunchStart = new Date(base.getTime() + LUNCH_START_MIN*60000);
+      const lunchEnd = new Date(base.getTime() + LUNCH_END_MIN*60000);
+      function overlap(aS,aE,bS,bE){ return Math.max(0, Math.min(aE.getTime(),bE.getTime()) - Math.max(aS.getTime(),bS.getTime())) / 60000; }
+      const total = overlap(workStart, workEnd, rangeStart, rangeEnd);
+      const lunch = overlap(lunchStart, lunchEnd, rangeStart, rangeEnd);
+      return Math.max(0, total - lunch);
+    }
+
+    function calculateLeaveDaysPreview(startStr, endStr) {
+      const start = new Date(startStr), end = new Date(endStr);
+      if (isNaN(start) || isNaN(end) || end <= start) return null;
+      let totalMinutes = 0;
+      const cursor = new Date(start); cursor.setHours(0,0,0,0);
+      const lastDay = new Date(end); lastDay.setHours(0,0,0,0);
+      while (cursor <= lastDay) {
+        totalMinutes += overlapMinutesForDay(cursor, start, end);
+        cursor.setDate(cursor.getDate() + 1);
+      }
+      const days = totalMinutes / 60 / 8;
+      return Math.ceil(days * 2) / 2;
+    }
+
+    function updateDaysBox() {
+      const days = calculateLeaveDaysPreview(startInput.value, endInput.value);
+      if (days === null) { daysBox.style.display = 'none'; return; }
+      daysBox.innerHTML = `จำนวนวันลาโดยประมาณ: <strong>${days}</strong> วัน (คิดจากเวลาทำงาน 08:00-17:00 หักพักเที่ยง)`;
+      daysBox.style.display = 'block';
+    }
+
+    startInput.addEventListener('input', updateDaysBox);
+    endInput.addEventListener('input', updateDaysBox);
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      alertBox.innerHTML = '';
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'กำลังส่ง...';
+
+      const formData = new FormData();
+      formData.append('employee_id', employeeSelect.value);
+      formData.append('leave_type', leaveTypeSelect.value);
+      formData.append('start_datetime', startInput.value);
+      formData.append('end_datetime', endInput.value);
+      formData.append('detail', document.getElementById('detail').value);
+      const imageFile = document.getElementById('image').files[0];
+      if (imageFile) formData.append('image', imageFile);
+
+      try {
+        const res = await fetch('/api/attendance/leave', { method: 'POST', body: formData });
+        const data = await res.json();
+        if (!res.ok) {
+          showAlert('error', data.error || 'ส่งคำขอไม่สำเร็จ');
+        } else {
+          showAlert('success', `ส่งคำขอลาเรียบร้อยแล้ว (ใช้ ${data.request.days_used} วัน, คงเหลือ ${data.remaining_quota} วัน)`);
+          form.reset();
+          quotaBox.style.display = 'none';
+          daysBox.style.display = 'none';
+        }
+      } catch (err) {
+        showAlert('error', 'เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'ส่งคำขอ';
+      }
+    });
+  </script>
+</body>
+</html>

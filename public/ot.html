@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ขอ OT — LeaveHub</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="page-content">
+    <div class="card card-centered">
+      <h1>⏱️ ขอทำงานล่วงเวลา (OT)</h1>
+
+      <div id="alert-box"></div>
+
+      <form id="ot-form">
+        <div class="field">
+          <label for="employee_id">พนักงาน</label>
+          <select id="employee_id" name="employee_id" required>
+            <option value="">-- เลือกพนักงาน --</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="ot_date">วันที่ทำ OT</label>
+          <input type="date" id="ot_date" name="ot_date" required>
+        </div>
+        <div class="field">
+          <label for="ot_start_time">เวลาเริ่ม</label>
+          <input type="time" id="ot_start_time" name="ot_start_time" required>
+        </div>
+        <div class="field">
+          <label for="ot_end_time">เวลาสิ้นสุด</label>
+          <input type="time" id="ot_end_time" name="ot_end_time" required>
+        </div>
+
+        <div class="preview-box" id="preview-box" style="display:none;">
+          ชั่วโมง OT โดยประมาณ: <strong id="preview-hours">-</strong> ชั่วโมง
+        </div>
+
+        <div class="field">
+          <label for="detail">รายละเอียดงาน (ถ้ามี)</label>
+          <textarea id="detail" name="detail" rows="3"></textarea>
+        </div>
+        <button type="submit" class="btn-primary" id="submit-btn">ส่งคำขอ</button>
+      </form>
+    </div>
+  </main>
+
+  <script src="nav.js"></script>
+  <script>
+    const alertBox = document.getElementById('alert-box');
+    const form = document.getElementById('ot-form');
+    const submitBtn = document.getElementById('submit-btn');
+    const employeeSelect = document.getElementById('employee_id');
+    const startInput = document.getElementById('ot_start_time');
+    const endInput = document.getElementById('ot_end_time');
+    const dateInput = document.getElementById('ot_date');
+    const previewBox = document.getElementById('preview-box');
+    const previewHours = document.getElementById('preview-hours');
+
+    function showAlert(type, message) {
+      alertBox.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+    }
+
+    async function loadEmployees() {
+      const res = await fetch('/api/attendance/my-team');
+      const data = await res.json();
+      if (!res.ok) return showAlert('error', data.error || 'โหลดรายชื่อพนักงานไม่สำเร็จ');
+      data.employees.forEach((emp) => {
+        const opt = document.createElement('option');
+        opt.value = emp.employee_id;
+        opt.textContent = `${emp.employee_id} — ${emp.prefix || ''}${emp.first_name} ${emp.last_name} (${emp.department})`;
+        employeeSelect.appendChild(opt);
+      });
+    }
+
+    window.LeaveHub.ready.then((user) => {
+      if (!user) return;
+      loadEmployees();
+    });
+
+    // คำนวณ preview ฝั่ง client (เหมือนตรรกะฝั่ง server: หากเวลาสิ้นสุดน้อยกว่าเริ่ม ถือว่าข้ามเที่ยงคืน)
+    function updatePreview() {
+      const start = startInput.value;
+      const end = endInput.value;
+      if (!start || !end) {
+        previewBox.style.display = 'none';
+        return;
+      }
+      const [sh, sm] = start.split(':').map(Number);
+      const [eh, em] = end.split(':').map(Number);
+      let startMin = sh * 60 + sm;
+      let endMin = eh * 60 + em;
+      if (endMin <= startMin) endMin += 24 * 60;
+      const hours = (endMin - startMin) / 60;
+      previewHours.textContent = hours.toFixed(2);
+      previewBox.style.display = 'block';
+    }
+
+    startInput.addEventListener('input', updatePreview);
+    endInput.addEventListener('input', updatePreview);
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      alertBox.innerHTML = '';
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'กำลังส่ง...';
+
+      const payload = {
+        employee_id: employeeSelect.value,
+        ot_date: dateInput.value,
+        ot_start_time: startInput.value,
+        ot_end_time: endInput.value,
+        detail: document.getElementById('detail').value
+      };
+
+      try {
+        const res = await fetch('/api/attendance/ot', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          showAlert('error', data.error || 'ส่งคำขอไม่สำเร็จ');
+        } else {
+          showAlert('success', `ส่งคำขอ OT เรียบร้อยแล้ว (${data.request.ot_hours} ชั่วโมง)`);
+          form.reset();
+          previewBox.style.display = 'none';
+        }
+      } catch (err) {
+        showAlert('error', 'เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'ส่งคำขอ';
+      }
+    });
+  </script>
+</body>
+</html>
