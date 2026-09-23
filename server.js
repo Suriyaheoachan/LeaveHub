@@ -20,6 +20,26 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
+// TEMP DEBUG ENDPOINT — เปิดดูตรงๆ ในเบราว์เซอร์ได้เลยที่ /api/debug-env
+// โชว์แค่ true/false ว่ามีค่าตัวแปรไหน ไม่โชว์ค่าจริงเด็ดขาด (ปลอดภัย)
+// ลบ route นี้ทิ้งหลังจากแก้ปัญหา environment variables เสร็จแล้ว
+app.get('/api/debug-env', (req, res) => {
+  res.json({
+    SUPABASE_URL: !!process.env.SUPABASE_URL,
+    SUPABASE_SERVICE_ROLE_KEY: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+    JWT_SECRET: !!process.env.JWT_SECRET,
+    SESSION_SECRET: !!process.env.SESSION_SECRET,
+    NODE_ENV: process.env.NODE_ENV || null,
+    VERCEL_ENV: process.env.VERCEL_ENV || null,
+    VERCEL: process.env.VERCEL || null,
+    // แสดงชื่อตัวแปร env ทั้งหมดที่ขึ้นต้นด้วย SUPABASE หรือ JWT (ไม่โชว์ค่า)
+    // เผื่อชื่อตัวแปรจริงสะกดผิด/มีช่องว่างแฝง จะได้เห็นชื่อที่แท้จริง
+    matching_env_keys: Object.keys(process.env).filter(
+      (k) => k.includes('SUPABASE') || k.includes('JWT') || k.includes('SESSION')
+    )
+  });
+});
+
 // auth ใช้ JWT เก็บใน httpOnly cookie แทน server-side session
 // เพื่อให้ทำงานได้ถูกต้องบน serverless (เช่น Vercel) ที่แต่ละ request
 // อาจไปลงที่ instance คนละตัวกัน ไม่มี memory ร่วมกันแบบ session แบบเดิม
