@@ -14,6 +14,11 @@ function getClient() {
   if (_client) return _client;
   const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  // TEMP DEBUG LOG — โชว์แค่ true/false ว่ามีค่าไหม ไม่โชว์ค่าจริงเด็ดขาด (ปลอดภัย)
+  // ลบบรรทัดนี้ทิ้งได้หลังแก้ปัญหา env var เสร็จแล้ว
+  console.log('[LeaveHub debug] SUPABASE_URL present:', !!url, '| SUPABASE_SERVICE_ROLE_KEY present:', !!key, '| NODE_ENV:', process.env.NODE_ENV, '| VERCEL_ENV:', process.env.VERCEL_ENV);
+
   if (!url || !key) {
     throw new Error(
       'ยังไม่ได้ตั้งค่า SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY — เช็ค Environment Variables (ในเครื่อง: ไฟล์ .env, บน Vercel: Project Settings > Environment Variables แล้ว Redeploy ใหม่)'
