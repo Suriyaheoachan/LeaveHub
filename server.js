@@ -40,6 +40,24 @@ app.get('/api/debug-env', (req, res) => {
   });
 });
 
+// TEMP DEBUG ENDPOINT — เช็คว่าต่อ Supabase project ถูกตัวไหม โดยนับแถวในตาราง
+// supervisors (ไม่โชว์ข้อมูลจริงของใครเลย แค่ตัวเลขจำนวนแถว + error ถ้ามี)
+// ลบ route นี้ทิ้งหลังจากแก้ปัญหาเสร็จแล้ว
+app.get('/api/debug-db', async (req, res) => {
+  try {
+    const { supabase } = require('./services/supabaseService');
+    const { count, error } = await supabase
+      .from('supervisors')
+      .select('*', { count: 'exact', head: true });
+    if (error) {
+      return res.json({ ok: false, step: 'query supervisors', error: error.message, code: error.code });
+    }
+    res.json({ ok: true, supervisors_count: count });
+  } catch (err) {
+    res.json({ ok: false, step: 'exception', error: err.message });
+  }
+});
+
 // auth ใช้ JWT เก็บใน httpOnly cookie แทน server-side session
 // เพื่อให้ทำงานได้ถูกต้องบน serverless (เช่น Vercel) ที่แต่ละ request
 // อาจไปลงที่ instance คนละตัวกัน ไม่มี memory ร่วมกันแบบ session แบบเดิม
