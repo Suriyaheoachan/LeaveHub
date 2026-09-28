@@ -3,3 +3,5 @@ node_modules/
 *.log
 .DS_Store
 npm-debug.log*
+templates/*.local.xlsx
+*.import.xlsx

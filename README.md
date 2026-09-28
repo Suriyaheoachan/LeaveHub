@@ -61,3 +61,23 @@ npm start
 - ตั้งค่า `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `JWT_SECRET` เป็น Environment Variables บน Vercel Dashboard (ใช้ค่าคนละชุดกับตอน dev บนเครื่อง)
 - ตั้ง `NODE_ENV=production` เพื่อให้ cookie ถูกบังคับส่งผ่าน HTTPS เท่านั้น
 - ไฟล์อัปโหลด/รูปแนบยังอัปโหลดตรงไป Supabase Storage อยู่แล้ว ไม่ได้พึ่ง local disk จึงใช้กับ serverless ได้ทันทีโดยไม่ต้องแก้เพิ่ม
+
+## นำเข้าข้อมูลจาก Excel ขึ้น Supabase
+
+ใช้เทมเพลต `templates/LeaveHub_Import_Template.xlsx` (ชีต `employees` และ `supervisors` + ชีต "อ่านก่อน" อธิบายทุกคอลัมน์)
+
+```bash
+# 1) ทดสอบก่อน — ตรวจไฟล์อย่างเดียว ไม่เขียนอะไรลงฐานข้อมูล
+npm run import:excel -- ไฟล์ของคุณ.import.xlsx --dry-run
+
+# 2) นำเข้าจริง (เพิ่มเฉพาะรายการใหม่ รหัสที่มีอยู่แล้วจะถูกข้าม — ไม่ทับโควตาวันลาที่ถูกหักไปแล้ว)
+npm run import:excel -- ไฟล์ของคุณ.import.xlsx
+
+# 3) ถ้าต้องการแก้ข้อมูลที่มีอยู่แล้ว (ทับทุกคอลัมน์ รวมโควตาวันลาและรหัสผ่านตามไฟล์)
+npm run import:excel -- ไฟล์ของคุณ.import.xlsx --update
+```
+
+- ใช้ `.env` ของเครื่องเดียวกับที่รัน local (ต้องมี `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`) — `--dry-run` ไม่ต้องมี `.env`
+- ถ้ามีแถวใดผิด (ขาดค่า, ตัวเลขผิด, รหัสซ้ำ, role ไม่ใช่ admin/supervisor, supervisor ไม่มี company/department) สคริปต์จะบอกเลขแถวและ**ไม่นำเข้าอะไรเลยสักแถว** จนกว่าจะแก้ไฟล์ให้ถูก
+- แถวตัวอย่างในเทมเพลต (รหัสขึ้นต้นด้วย `EXAMPLE`) จะถูกข้ามอัตโนมัติ
+- รหัสผ่านในชีต `supervisors` จะถูกเข้ารหัส bcrypt ก่อนเก็บ — แต่ไฟล์ Excel มีรหัสตัวจริงอยู่ ควรลบไฟล์หลังนำเข้า และตั้งชื่อไฟล์ลงท้าย `.import.xlsx` (ถูก `.gitignore` ไว้แล้ว) เพื่อไม่ให้หลุดขึ้น git
