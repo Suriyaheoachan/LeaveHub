@@ -26,7 +26,7 @@ const CHUNK = 200;
 const EMPLOYEE_COLS = {
   required: ['employee_id', 'company', 'department', 'first_name', 'last_name'],
   optional: ['prefix'],
-  numeric: ['leave_business', 'leave_sick', 'leave_vacation']
+  numeric: ['leave_business', 'leave_sick', 'leave_vacation','leave_paid_business','leave_paid_sick','leave_matemity']
 };
 const SUPERVISOR_COLS = {
   required: ['supervisor_id', 'password', 'role', 'first_name', 'last_name'],
