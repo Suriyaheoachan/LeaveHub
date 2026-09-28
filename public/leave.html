@@ -26,7 +26,10 @@
           <select id="leave_type" name="leave_type" required>
             <option value="">-- เลือกประเภท --</option>
             <option value="business">ลากิจ</option>
+            <option value="piad_business">ลากิจจ่ายเงิน</option>
             <option value="sick">ลาป่วย</option>
+            <option value="paid_sick">ลาป่วยจ่ายเงิน</option>
+            <option value="matemity">ลาคลอด</option>
             <option value="vacation">ลาพักร้อน (ต้องขอล่วงหน้าอย่างน้อย 3 วัน)</option>
           </select>
         </div>
@@ -71,8 +74,8 @@
     const startInput = document.getElementById('start_datetime');
     const endInput = document.getElementById('end_datetime');
 
-    const LEAVE_LABEL = { business: 'ลากิจ', sick: 'ลาป่วย', vacation: 'ลาพักร้อน' };
-    const LEAVE_COLUMN = { business: 'leave_business', sick: 'leave_sick', vacation: 'leave_vacation' };
+    const LEAVE_LABEL = { business: 'ลากิจ', sick: 'ลาป่วย', vacation: 'ลาพักร้อน', paid_sick: 'ลาป่วยจ่ายเงิน', matemity: 'ลาคลอด', piad_business: 'ลากิจจ่ายเงิน' };
+    const LEAVE_COLUMN = { business: 'leave_business', sick: 'leave_sick', vacation: 'leave_vacation', paid_sick: 'ลาป่วยจ่ายเงิน', matemity: 'ลาคลอด', piad_business: 'ลากิจจ่ายเงิน' };
 
     let employees = [];
 

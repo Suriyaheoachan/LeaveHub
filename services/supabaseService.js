@@ -47,7 +47,10 @@ const WORK_HOURS_PER_DAY = 8;
 
 const LEAVE_TYPES = {
   business: { column: 'leave_business', label: 'ลากิจ', requireAdvanceDays: 0 },
+  paid_business :{ column: 'leave_paid_business', label: 'ลากิจจ่ายเงิน', requireAdvanceDays: 0},
   sick: { column: 'leave_sick', label: 'ลาป่วย', requireAdvanceDays: 0 },
+  paid_sick: { column: 'leave_paid_sick', label: 'ลาป่วยจ่ายเงิน', requireAdvanceDays: 0},
+  matemity: { column: 'leave_matemity', label: 'ลาคลอด', requireAdvanceDays: 0},
   vacation: { column: 'leave_vacation', label: 'ลาพักร้อน', requireAdvanceDays: 3 }
 };
 
