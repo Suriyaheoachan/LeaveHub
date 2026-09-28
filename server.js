@@ -44,18 +44,52 @@ app.get('/api/debug-env', (req, res) => {
 // supervisors (ไม่โชว์ข้อมูลจริงของใครเลย แค่ตัวเลขจำนวนแถว + error ถ้ามี)
 // ลบ route นี้ทิ้งหลังจากแก้ปัญหาเสร็จแล้ว
 app.get('/api/debug-db', async (req, res) => {
+  const url = process.env.SUPABASE_URL || '';
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+  const report = {};
+
+  // ตรวจรูปแบบ URL (ไม่โชว์ค่าจริง)
   try {
-    const { supabase } = require('./services/supabaseService');
-    const { count, error } = await supabase
-      .from('supervisors')
-      .select('*', { count: 'exact', head: true });
-    if (error) {
-      return res.json({ ok: false, step: 'query supervisors', error: error.message, code: error.code });
-    }
-    res.json({ ok: true, supervisors_count: count });
-  } catch (err) {
-    res.json({ ok: false, step: 'exception', error: err.message });
+    const u = new URL(url);
+    report.url = {
+      https: u.protocol === 'https:',
+      host_ends_with_supabase_co: u.hostname.endsWith('.supabase.co'),
+      has_extra_path: u.pathname !== '/' && u.pathname !== '',
+      has_whitespace_or_quote: /[\s"']/.test(url),
+      length: url.length
+    };
+    report._ref_from_url = u.hostname.split('.')[0];
+  } catch (e) {
+    report.url = { parse_error: e.message, has_whitespace_or_quote: /[\s"']/.test(url), length: url.length };
   }
+
+  // ตรวจรูปแบบ key (ไม่โชว์ค่าจริง) — payload ของ JWT อ่านได้ ไม่ใช่ความลับ (role/ref เท่านั้น)
+  report.key = {
+    length: key.length,
+    has_whitespace_or_quote: /[\s"']/.test(key),
+    dot_parts: key.split('.').length
+  };
+  try {
+    const payload = JSON.parse(Buffer.from(key.split('.')[1], 'base64').toString('utf8'));
+    report.key.role = payload.role;
+    report.key.ref_matches_url = payload.ref === report._ref_from_url;
+  } catch (e) {
+    report.key.jwt_decode = 'ไม่ใช่ JWT แบบเดิม (อาจเป็น key รูปแบบใหม่หรือผิดรูปแบบ)';
+  }
+  delete report._ref_from_url;
+
+  // ยิง REST ตรงๆ ดู status + body สั้นๆ
+  try {
+    const r = await fetch(`${url.replace(/\/$/, '')}/rest/v1/supervisors?select=supervisor_id&limit=0`, {
+      headers: { apikey: key, Authorization: `Bearer ${key}` }
+    });
+    const text = await r.text();
+    report.raw_fetch = { status: r.status, body_snippet: text.slice(0, 150) };
+  } catch (e) {
+    report.raw_fetch = { exception: e.message, cause: e.cause && (e.cause.code || e.cause.message) };
+  }
+
+  res.json(report);
 });
 
 // auth ใช้ JWT เก็บใน httpOnly cookie แทน server-side session
