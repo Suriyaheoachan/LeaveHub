@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "functions"/.: {
+  "functions": {
     "api/index.js": {
       "includeFiles": "public/**"
     }
