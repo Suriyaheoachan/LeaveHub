@@ -20,11 +20,15 @@
         </div>
         <div class="field">
           <label for="f-company">บริษัท</label>
-          <input type="text" id="f-company" placeholder="เช่น บริษัท เอบีซี">
+          <select id="f-company">
+            <option value="">ทั้งหมด</option>
+            </select>
         </div>
         <div class="field">
           <label for="f-department">แผนก</label>
-          <input type="text" id="f-department" placeholder="เช่น บัญชี">
+          <select id="f-department">
+            <option value="">ทั้งหมด</option>
+          </select>
         </div>
         <div class="field">
           <label for="f-leave-type">ประเภทลา</label>
@@ -89,6 +93,26 @@
       return d.toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' });
     }
 
+    async function loadFilterOptions() {
+      try {
+        const res = await fetch('/api/attendance/filter-options');
+        const data = await res.json();
+        if (!res.ok) return;
+        const companySelect = document.getElementById('f-company');
+        const departmentSelect = document.getElementById('f-department');
+        data.companies.forEach((c) => {
+          const opt = document.createElement('option');
+          opt.value = c; opt.textContent = c;
+          companySelect.appendChild(opt);
+        });
+        data.departments.forEach((d) => {
+          const opt = document.createElement('option');
+          opt.value = d; opt.textContent = d;
+          departmentSelect.appendChild(opt);
+        });
+      } catch (err) { /* เงียบไว้ — ไม่กระทบการดูประวัติหลัก */ }
+    }
+
     async function loadHistory() {
       tbody.innerHTML = '<tr><td colspan="12">กำลังโหลด...</td></tr>';
       const params = new URLSearchParams();
@@ -151,6 +175,7 @@
 
     window.LeaveHub.ready.then((user) => {
       if (!user) return;
+      loadFilterOptions();
       loadHistory();
     });
   </script>

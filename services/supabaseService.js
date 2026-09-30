@@ -311,9 +311,26 @@ async function getLeaveHistory(filters = {}) {
   return data;
 }
 
+// รายชื่อบริษัท/แผนกที่มีอยู่จริง (ไม่ซ้ำ) — ใช้ทำ dropdown ตัวกรองในหน้าประวัติ
+async function getFilterOptions() {
+  const { data, error } = await supabase.from('employees').select('company, department');
+  if (error) throw error;
+  const companies = new Set();
+  const departments = new Set();
+  (data || []).forEach((row) => {
+    if (row.company) companies.add(row.company);
+    if (row.department) departments.add(row.department);
+  });
+  return {
+    companies: [...companies].sort((a, b) => a.localeCompare(b, 'th')),
+    departments: [...departments].sort((a, b) => a.localeCompare(b, 'th'))
+  };
+}
+
 module.exports = {
   supabase,
   LEAVE_TYPES,
+  getFilterOptions,
   getTimeCorrectionReasons,
   getLeaveTypeInfo,
   calculateLeaveDays,

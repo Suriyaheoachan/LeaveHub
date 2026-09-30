@@ -218,4 +218,15 @@ router.get('/leave/history', requireAdmin, async (req, res) => {
   }
 });
 
+// GET /api/attendance/filter-options
+router.get('/filter-options', requireAdmin, async (req, res) => {
+  try {
+    const options = await svc.getFilterOptions();
+    res.json(options);
+  } catch (err) {
+    console.error('GET /api/attendance/filter-options', err);
+    res.status(500).json({ error: 'ดึงรายชื่อบริษัท/แผนกไม่สำเร็จ' });
+  }
+});
+
 module.exports = router;
