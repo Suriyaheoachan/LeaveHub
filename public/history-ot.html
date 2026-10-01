@@ -82,6 +82,26 @@
       return d.toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' });
     }
 
+    async function loadFilterOptions() {
+      try {
+        const res = await fetch('/api/attendance/filter-options');
+        const data = await res.json();
+        if (!res.ok) return;
+        const companySelect = document.getElementById('f-company');
+        const departmentSelect = document.getElementById('f-department');
+        data.companies.forEach((c) => {
+          const opt = document.createElement('option');
+          opt.value = c; opt.textContent = c;
+          companySelect.appendChild(opt);
+        });
+        data.departments.forEach((d) => {
+          const opt = document.createElement('option');
+          opt.value = d; opt.textContent = d;
+          departmentSelect.appendChild(opt);
+        });
+      } catch (err) { /* เงียบไว้ — ไม่กระทบการดูประวัติหลัก */ }
+    }
+
     async function loadHistory() {
       tbody.innerHTML = '<tr><td colspan="11">กำลังโหลด...</td></tr>';
       const params = new URLSearchParams();
@@ -137,6 +157,7 @@
 
     window.LeaveHub.ready.then((user) => {
       if (!user) return;
+      loadFilterOptions();
       loadHistory();
     });
   </script>
