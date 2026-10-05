@@ -161,11 +161,14 @@ async function getSupervisorById(supervisorId) {
 
 // ===== Employees (scope) =====
 
-// ถ้า isAdmin=true จะเห็นทุกบริษัท/ทุกแผนก ไม่งั้นเห็นเฉพาะของตัวเอง
+// ถ้า isAdmin=true จะเห็นทุกบริษัท/ทุกแผนก
+// ถ้าเป็น supervisor: company/department เป็น NULL แปลว่า "เห็นทุกบริษัท" / "เห็นทุกแผนก" ตามลำดับ
+// (เช่น company มีค่าแต่ department เป็น NULL = เห็นทุกแผนกในบริษัทนั้น)
 async function getEmployeesByScope({ isAdmin, company, department }) {
   let query = supabase.from('employees').select('*').order('first_name');
   if (!isAdmin) {
-    query = query.eq('company', company).eq('department', department);
+    if (company) query = query.eq('company', company);
+    if (department) query = query.eq('department', department);
   }
   const { data, error } = await query;
   if (error) throw error;
@@ -183,9 +186,12 @@ async function getEmployeeById(employeeId) {
 }
 
 // ตรวจว่าพนักงานคนนี้อยู่ในสังกัดของผู้ใช้ที่ล็อกอิน (สำหรับ supervisor ธรรมดา)
+// company/department ของ supervisor เป็น NULL แปลว่าไม่จำกัดค่านั้น (ดูได้ทุกบริษัท/ทุกแผนก)
 function employeeInScope(employee, user) {
   if (user.role === 'admin') return true;
-  return employee.company === user.company && employee.department === user.department;
+  if (user.company && employee.company !== user.company) return false;
+  if (user.department && employee.department !== user.department) return false;
+  return true;
 }
 
 // ===== Time correction requests =====
