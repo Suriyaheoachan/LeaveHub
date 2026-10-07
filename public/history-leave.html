@@ -49,6 +49,7 @@
         </div>
         <button class="btn-secondary" id="search-btn">ค้นหา</button>
         <button class="btn-secondary" id="reset-btn">ล้างตัวกรอง</button>
+        <button class="btn-secondary" id="report-btn">ดาวน์โหลดรายงานสรุป (CSV)</button>
       </div>
 
       <div class="table-wrap">
@@ -82,6 +83,7 @@
     const LEAVE_LABEL = { business: 'ลากิจ', sick: 'ลาป่วย', vacation: 'ลาพักร้อน' };
     const alertBox = document.getElementById('alert-box');
     const tbody = document.getElementById('table-body');
+    let currentHistory = [];
 
     function showAlert(type, message) {
       alertBox.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
@@ -92,6 +94,48 @@
       const d = new Date(v);
       return d.toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' });
     }
+
+    function cellToCsv(v) {
+  const s = String(v ?? '');
+  return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+function downloadCsv(filename, rows) {
+  const csv = '\uFEFF' + rows.map((r) => r.map(cellToCsv).join(',')).join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function downloadLeaveReport() {
+  if (!currentHistory.length) return showAlert('info', 'ไม่มีข้อมูลให้สรุป ลองค้นหาก่อน');
+  const byEmployee = new Map();
+  currentHistory.forEach((row) => {
+    if (!byEmployee.has(row.employee_id)) {
+      byEmployee.set(row.employee_id, {
+        employee_id: row.employee_id, name: row.name, company: row.company, department: row.department,
+        business: 0, sick: 0, vacation: 0
+      });
+    }
+    const rec = byEmployee.get(row.employee_id);
+    rec[row.leave_type] = (rec[row.leave_type] || 0) + Number(row.days_used || 0);
+  });
+
+  const rows = [['รหัสพนักงาน', 'ชื่อ', 'บริษัท', 'แผนก', 'ลากิจ (วัน)', 'ลาป่วย (วัน)', 'ลาพักร้อน (วัน)', 'รวมทั้งหมด (วัน)']];
+  const grand = { business: 0, sick: 0, vacation: 0 };
+  [...byEmployee.values()]
+    .sort((a, b) => a.name.localeCompare(b.name, 'th'))
+    .forEach((rec) => {
+      const total = rec.business + rec.sick + rec.vacation;
+      grand.business += rec.business; grand.sick += rec.sick; grand.vacation += rec.vacation;
+      rows.push([rec.employee_id, rec.name, rec.company, rec.department, rec.business, rec.sick, rec.vacation, total]);
+    });
+  rows.push(['', '', '', 'รวมทั้งหมด', grand.business, grand.sick, grand.vacation, grand.business + grand.sick + grand.vacation]);
+
+  downloadCsv(`leave-report-${new Date().toISOString().slice(0, 10)}.csv`, rows);
+}
 
     async function loadFilterOptions() {
       try {
@@ -133,7 +177,7 @@
         const res = await fetch('/api/attendance/leave/history?' + params.toString());
         const data = await res.json();
         if (!res.ok) return showAlert('error', data.error || 'โหลดประวัติไม่สำเร็จ');
-
+        currentHistory = data.history;
         if (!data.history.length) {
           tbody.innerHTML = '<tr><td colspan="12">ไม่พบข้อมูล</td></tr>';
           return;
@@ -166,6 +210,7 @@
       }
     }
 
+    document.getElementById('report-btn').addEventListener('click', downloadLeaveReport);
     document.getElementById('search-btn').addEventListener('click', loadHistory);
     document.getElementById('reset-btn').addEventListener('click', () => {
       document.querySelectorAll('.filter-bar input').forEach((el) => el.value = '');

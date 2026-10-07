@@ -142,8 +142,9 @@ async function validateSupervisors(rows, colIndex, errors) {
     if (data.role && !['admin', 'supervisor'].includes(data.role)) {
       rowErrors.push(`role ต้องเป็น admin หรือ supervisor (พบ "${data.role}")`);
     }
-    if (data.role === 'supervisor' && (!data.company || !data.department)) {
-      rowErrors.push('role = supervisor ต้องกรอก company และ department (ไม่งั้นจะมองไม่เห็นพนักงานเลย)');
+    const departments = (data.department || '').split(',').map((d) => d.trim()).filter(Boolean);
+    if (data.role === 'supervisor' && (!data.company || departments.length === 0)) {
+      rowErrors.push('role = supervisor ต้องกรอก company และ department อย่างน้อย 1 แผนก (คั่นหลายแผนกด้วย ,)');
     }
     if (data.supervisor_id && seen.has(data.supervisor_id)) rowErrors.push(`supervisor_id "${data.supervisor_id}" ซ้ำในไฟล์`);
     seen.add(data.supervisor_id);
@@ -160,7 +161,7 @@ async function validateSupervisors(rows, colIndex, errors) {
       first_name: data.first_name,
       last_name: data.last_name,
       company: data.company || null,
-      department: data.department || null
+      department: departments.length ? departments.join(', ') : (data.department || null),
     });
   }
   return valid;

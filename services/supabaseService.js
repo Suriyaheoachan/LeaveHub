@@ -24,6 +24,15 @@ function getClient() {
   return _client;
 }
 
+// แปลงค่าแผนกที่อาจมีหลายแผนกคั่นด้วย , ให้เป็น array ที่ตัดช่องว่างแล้ว
+// เช่น " จัดส่ง, ขนส่ง " -> ["จัดส่ง", "ขนส่ง"]
+function parseDepartments(deptStr) {
+  return String(deptStr || '')
+    .split(',')
+    .map((d) => d.trim())
+    .filter(Boolean);
+}
+
 // Proxy ทำให้โค้ดส่วนอื่นในไฟล์นี้ยังเรียก supabase.from(...) / supabase.storage
 // ได้เหมือนเดิมทุกที่ โดยไม่ต้องแก้โค้ดที่เหลือทั้งหมด
 const supabase = new Proxy({}, {
@@ -167,8 +176,8 @@ async function getSupervisorById(supervisorId) {
 async function getEmployeesByScope({ isAdmin, company, department }) {
   let query = supabase.from('employees').select('*').order('first_name');
   if (!isAdmin) {
-    if (company) query = query.eq('company', company);
-    if (department) query = query.eq('department', department);
+    const departments = parseDepartments(department);
+    query = query.eq('company', company).in('department', departments);
   }
   const { data, error } = await query;
   if (error) throw error;
@@ -189,9 +198,9 @@ async function getEmployeeById(employeeId) {
 // company/department ของ supervisor เป็น NULL แปลว่าไม่จำกัดค่านั้น (ดูได้ทุกบริษัท/ทุกแผนก)
 function employeeInScope(employee, user) {
   if (user.role === 'admin') return true;
-  if (user.company && employee.company !== user.company) return false;
-  if (user.department && employee.department !== user.department) return false;
-  return true;
+  if (employee.company !== user.company) return false;
+  const departments = parseDepartments(user.department);
+  return departments.includes(employee.department);
 }
 
 // ===== Time correction requests =====
@@ -336,6 +345,7 @@ async function getFilterOptions() {
 module.exports = {
   supabase,
   LEAVE_TYPES,
+  parseDepartments,
   getFilterOptions,
   getTimeCorrectionReasons,
   getLeaveTypeInfo,

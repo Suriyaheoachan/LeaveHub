@@ -40,6 +40,7 @@
         </div>
         <button class="btn-secondary" id="search-btn">ค้นหา</button>
         <button class="btn-secondary" id="reset-btn">ล้างตัวกรอง</button>
+        <button class="btn-secondary" id="report-btn">ดาวน์โหลดรายงานสรุป (CSV)</button>
       </div>
 
       <div class="table-wrap">
@@ -71,6 +72,8 @@
   <script>
     const alertBox = document.getElementById('alert-box');
     const tbody = document.getElementById('table-body');
+    document.getElementById('report-btn').addEventListener('click', downloadOtReport);
+    let currentHistory = [];
 
     function showAlert(type, message) {
       alertBox.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
@@ -80,6 +83,47 @@
       if (!v) return '-';
       const d = new Date(v);
       return d.toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' });
+    }
+
+    function cellToCsv(v) {
+      const s = String(v ?? '');
+      return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+    }
+    function downloadCsv(filename, rows) {
+      const csv = '\uFEFF' + rows.map((r) => r.map(cellToCsv).join(',')).join('\r\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } 
+
+    function downloadOtReport() {
+      if (!currentHistory.length) return showAlert('info', 'ไม่มีข้อมูลให้สรุป ลองค้นหาก่อน');
+      const byKey = new Map();
+      currentHistory.forEach((row) => {
+        const key = row.employee_id + '|' + row.ot_date;
+        if (!byKey.has(key)) {
+          byKey.set(key, {
+            employee_id: row.employee_id, name: row.name, company: row.company, department: row.department,
+            ot_date: row.ot_date, hours: 0
+          });
+        }
+        byKey.get(key).hours += Number(row.ot_hours || 0);
+      });
+
+      const rows = [['รหัสพนักงาน', 'ชื่อ', 'บริษัท', 'แผนก', 'วันที่ OT', 'รวมชั่วโมง OT']];
+      let grand = 0;
+      [...byKey.values()]
+        .sort((a, b) => (a.ot_date === b.ot_date ? a.name.localeCompare(b.name, 'th') : a.ot_date.localeCompare(b.ot_date)))
+        .forEach((rec) => {
+          grand += rec.hours;
+          rows.push([rec.employee_id, rec.name, rec.company, rec.department, rec.ot_date, rec.hours]);
+        });
+      rows.push(['', '', '', '', 'รวมทั้งหมด', grand]);
+
+      downloadCsv(`ot-report-${new Date().toISOString().slice(0, 10)}.csv`, rows);
     }
 
     async function loadFilterOptions() {
@@ -110,6 +154,7 @@
       const department = document.getElementById('f-department').value.trim();
       const dateFrom = document.getElementById('f-date-from').value;
       const dateTo = document.getElementById('f-date-to').value;
+      
       if (name) params.set('name', name);
       if (company) params.set('company', company);
       if (department) params.set('department', department);
@@ -120,7 +165,7 @@
         const res = await fetch('/api/attendance/ot/history?' + params.toString());
         const data = await res.json();
         if (!res.ok) return showAlert('error', data.error || 'โหลดประวัติไม่สำเร็จ');
-
+        currentHistory = data.history;
         if (!data.history.length) {
           tbody.innerHTML = '<tr><td colspan="11">ไม่พบข้อมูล</td></tr>';
           return;
@@ -149,6 +194,7 @@
       }
     }
 
+    document.getElementById('report-btn').addEventListener('click', downloadOtReport);
     document.getElementById('search-btn').addEventListener('click', loadHistory);
     document.getElementById('reset-btn').addEventListener('click', () => {
       document.querySelectorAll('.filter-bar input').forEach((el) => el.value = '');
